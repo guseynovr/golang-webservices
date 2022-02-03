@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	// "strings"
 )
 
 func main() {
@@ -26,16 +25,12 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 	if err != nil {
 		return err 
 	}
-	st, err := file.Stat();
-	if err != nil {
-		return err
-	}
-	if !st.IsDir() {
-		return nil
-	}
 	entries, err := file.Readdir(-1);
 	if err != nil {
 		return err
+	}
+	if !printFiles {
+		entries = skipFiles(entries)
 	}
 	for i, entry := range entries {
 		err = _dirTree(out, path + "/" + entry.Name(), printFiles, "", i == len(entries) - 1)
@@ -57,14 +52,17 @@ func _dirTree(out io.Writer, path string, printFiles bool, prefix string, last b
 	}
 	if !st.IsDir() {
 		if printFiles {
-			printEntry(out, path, prefix, last)
+			printFile(out, st.Name(), st.Size(), prefix, last)
 		}
 		return nil
 	}
 	printEntry(out, st.Name(), prefix, last)
-	entries, err := file.Readdir(-1);
+	entries, err := file.Readdir(-1);	
 	if err != nil {
 		return err
+	}
+	if !printFiles {
+		entries = skipFiles(entries)
 	}
 	for i, entry := range entries {
 		if last {
@@ -79,12 +77,22 @@ func _dirTree(out io.Writer, path string, printFiles bool, prefix string, last b
 	return nil
 }
 
+func skipFiles(files []os.FileInfo) []os.FileInfo {
+	dirs := []os.FileInfo{}
+	for _, f := range files {
+		if f.IsDir() {
+			dirs = append(dirs, f)
+		}
+	}
+	return dirs
+}
+
 func printEntry(out io.Writer, filename string, prefix string, last bool) {
 	prefix = fprefix(prefix, last)
 	out.Write([]byte(prefix + filepath.Base(filename) + "\n"))
 }
 
-func printFile(out io.Writer, filename string, size int, prefix string, last bool) {
+func printFile(out io.Writer, filename string, size int64, prefix string, last bool) {
 	prefix = fprefix(prefix, last)
 	s := prefix + filepath.Base(filename)
 	if size > 0 {
