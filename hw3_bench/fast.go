@@ -1,11 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"regexp"
 	"strings"
 
 	json "encoding/json"
@@ -40,35 +39,24 @@ func FastSearch(out io.Writer) {
 	if err != nil {
 		panic(err)
 	}
-
-	fileContents, err := ioutil.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-
-	r := regexp.MustCompile("@")
+	fmt.Fprintln(out, "found users:")
+	
 	seenBrowsers := make(map[string]bool)
 	uniqueBrowsers := 0
-	foundUsers := ""
+	reader := bufio.NewReader(file)
 
-	lines := strings.Split(string(fileContents), "\n")
-
-	users := make([]User, 0)
-	for _, line := range lines {
+	line, _, err := reader.ReadLine()
+	for i := 0; err == nil && len(line) > 0; i++ {
 		user := User{}
-		// fmt.Printf("%v %v\n", err, line)
-		err := easyjson.Unmarshal([]byte(line), &user)
+		err := easyjson.Unmarshal(line, &user)
 		if err != nil {
+			fmt.Println("Err line:", line)
 			panic(err)
 		}
-		users = append(users, user)
-	}
-
-	for i, user := range users {
 
 		isAndroid := false
 		isMSIE := false
-
+		
 		browsers := user.Browsers
 
 		for _, browser := range browsers {
@@ -86,17 +74,19 @@ func FastSearch(out io.Writer) {
 			}
 		}
 
-		if !(isAndroid && isMSIE) {
-			continue
+		if isAndroid && isMSIE {
+			// log.Println("Android and MSIE user:", user["name"], user["email"])
+			email := strings.Replace(user.Email, "@", " [at] ", 1)
+			fmt.Fprintf(out, "[%d] %s <%s>\n", i, user.Name, email)
 		}
 
-		// log.Println("Android and MSIE user:", user["name"], user["email"])
-		email := r.ReplaceAllString(user.Email, " [at] ")
-		foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
+		line, _, err = reader.ReadLine()
+	}
+	if err != nil {
+		panic(err)
 	}
 
-	fmt.Fprintln(out, "found users:\n"+foundUsers)
-	fmt.Fprintln(out, "Total unique browsers", len(seenBrowsers))
+	fmt.Fprintln(out, "\nTotal unique browsers", len(seenBrowsers))
 }
 
 // suppress unused package warning
