@@ -15,6 +15,7 @@ type UsersData struct {
 		Age       int    `xml:"age"`
 		FirstName string `xml:"first_name"`
 		LastName  string `xml:"last_name"`
+		Gender    string `xml:"gender"`
 		About     string `xml:"about"`
 	} `xml:"row"`
 }
@@ -22,7 +23,7 @@ type UsersData struct {
 func main() {
 	// Limit := 50
 	// Offset := 0
-	// Query := "Boyd"
+	Query := "Hilda"
 	OrderField := "Name"
 	// OrderBy := 0
 
@@ -41,12 +42,17 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	users := u.Users
-
-	// i := 0
-	// for _, v := range users {
-
-	// }
+	i := 0
+	for _, v := range users {
+		if strings.Contains(v.About, Query) ||
+			strings.Contains(v.FirstName+v.LastName, Query) {
+			users[i] = v
+			i++
+		}
+	}
+	users = users[:i]
 
 	var less func(int, int) bool
 	switch strings.ToLower(OrderField) {
