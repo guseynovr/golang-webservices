@@ -4,33 +4,50 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-type UsersData struct {
-	Users []struct {
-		ID        int    `xml:"id"`
-		Age       int    `xml:"age"`
-		FirstName string `xml:"first_name"`
-		LastName  string `xml:"last_name"`
-		Gender    string `xml:"gender"`
-		About     string `xml:"about"`
-	} `xml:"row"`
+type UserXML struct {
+	ID        int    `xml:"id"`
+	Age       int    `xml:"age"`
+	FirstName string `xml:"first_name"`
+	LastName  string `xml:"last_name"`
+	Gender    string `xml:"gender"`
+	About     string `xml:"about"`
 }
 
-func main() {
-	limit := 10
-	offset := 0
-	query := "culpa"
-	orderField := "id"
-	orderBy := -1
+type UsersData struct {
+	Users []UserXML `xml:"row"`
+	// Users []struct {
+	// 	ID        int    `xml:"id"`
+	// 	Age       int    `xml:"age"`
+	// 	FirstName string `xml:"first_name"`
+	// 	LastName  string `xml:"last_name"`
+	// 	Gender    string `xml:"gender"`
+	// 	About     string `xml:"about"`
+	// } `xml:"row"`
+}
 
-	data, err := os.Open("dataset.xml")
-	if err != nil {
-		panic(err)
-	}
+func SearchServer(w http.ResponseWriter, r *http.Request) {
+
+	vals := r.URL.Query()
+
+	// fmt.Printf("%#v\n", vals.Get("limit"))
+	limit, _ := strconv.Atoi(vals.Get("limit"))
+	println("limit = ", limit)
+	offset, _ := strconv.Atoi(vals.Get("offset"))
+	query := vals.Get("query")
+	orderField := vals.Get("order_field")
+	orderBy, _ := strconv.Atoi(vals.Get("order_by"))
+	data, _ := os.Open("dataset.xml")
+	// if err != nil {
+	// 	panic(err)
+	// }
 	defer data.Close()
 
 	rawData, err := ioutil.ReadAll(data)
@@ -62,6 +79,19 @@ func main() {
 	}
 	users = users[offset:limit]
 
+	sortByParams(users, orderField, orderBy)
+	// fmt.Printf("%#v\n", users)
+	fmt.Fprintf(w, "%#v", users)
+	// for _, v := range users {
+	// 	// fmt.Printf("%#v\n", v.LastName)
+	// 	println(v.ID, v.FirstName, v.LastName)
+	// }
+}
+
+func sortByParams(users []UserXML, orderField string, orderBy int) {
+	if orderBy == 0 {
+		return
+	}
 	var less, more func(int, int) bool
 	switch strings.ToLower(orderField) {
 	case "id":
@@ -85,9 +115,21 @@ func main() {
 	} else if orderBy < 0 {
 		sort.Slice(users, more)
 	}
-	// fmt.Printf("%#v\n", users)
-	for _, v := range users {
-		// fmt.Printf("%#v\n", v.LastName)
-		println(v.ID, v.FirstName, v.LastName)
-	}
+}
+
+func main() {
+	err := http.ListenAndServe(":5000", http.HandlerFunc(SearchServer))
+	log.Print(err)
+	// sc := SearchClient{
+	// 	URL: "http://127.0.0.1:5000",
+	// }
+	// sr := SearchRequest{
+	// 	Limit:      50,
+	// 	Offset:     0,
+	// 	Query:      "culpa",
+	// 	OrderField: "name",
+	// 	OrderBy:    1,
+	// }
+	// sResp, _ := sc.FindUsers(sr)
+	// println(sResp.Users)
 }
