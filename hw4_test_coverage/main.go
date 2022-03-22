@@ -21,11 +21,11 @@ type UsersData struct {
 }
 
 func main() {
-	// Limit := 50
-	// Offset := 0
-	Query := "Hilda"
-	OrderField := "Name"
-	// OrderBy := 0
+	limit := 10
+	offset := 0
+	query := "culpa"
+	orderField := "id"
+	orderBy := -1
 
 	data, err := os.Open("dataset.xml")
 	if err != nil {
@@ -46,31 +46,45 @@ func main() {
 	users := u.Users
 	i := 0
 	for _, v := range users {
-		if strings.Contains(v.About, Query) ||
-			strings.Contains(v.FirstName+v.LastName, Query) {
+		if strings.Contains(v.About, query) ||
+			strings.Contains(v.FirstName+v.LastName, query) {
 			users[i] = v
 			i++
 		}
 	}
 	users = users[:i]
 
-	var less func(int, int) bool
-	switch strings.ToLower(OrderField) {
+	if offset >= limit || offset > len(users) {
+		offset = 0
+		limit = 0
+	} else if limit > len(users) {
+		limit = len(users)
+	}
+	users = users[offset:limit]
+
+	var less, more func(int, int) bool
+	switch strings.ToLower(orderField) {
 	case "id":
 		less = func(i, j int) bool { return users[i].ID < users[j].ID }
+		more = func(i, j int) bool { return users[i].ID > users[j].ID }
 	case "age":
 		less = func(i, j int) bool { return users[i].Age < users[j].Age }
+		more = func(i, j int) bool { return users[i].Age > users[j].Age }
 	case "name", "":
 		less = func(i, j int) bool {
 			return users[i].FirstName+users[i].LastName < users[j].FirstName+users[j].LastName
 		}
+		more = func(i, j int) bool {
+			return users[i].FirstName+users[i].LastName > users[j].FirstName+users[j].LastName
+		}
 	default:
-		panic(fmt.Errorf("SearchServer: invalid OrderField: %s", OrderField))
+		panic(fmt.Errorf("SearchServer: invalid OrderField: %s", orderField))
 	}
-	sort.Slice(users, func(i, j int) bool {
-		return users[i].FirstName+users[i].LastName < users[j].FirstName+users[j].LastName
-	})
-	sort.Slice(users, less)
+	if orderBy > 0 {
+		sort.Slice(users, less)
+	} else if orderBy < 0 {
+		sort.Slice(users, more)
+	}
 	// fmt.Printf("%#v\n", users)
 	for _, v := range users {
 		// fmt.Printf("%#v\n", v.LastName)
