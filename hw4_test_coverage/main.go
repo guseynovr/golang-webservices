@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -12,52 +13,56 @@ import (
 	"strings"
 )
 
-type UserXML struct {
-	ID        int    `xml:"id"`
+type UserData struct {
+	Id        int    `xml:"id"`
 	Age       int    `xml:"age"`
-	FirstName string `xml:"first_name"`
-	LastName  string `xml:"last_name"`
+	FirstName string `xml:"first_name" json:"-"`
+	LastName  string `xml:"last_name" json:"-"`
+	Name      string `xml:"-"`
 	Gender    string `xml:"gender"`
 	About     string `xml:"about"`
 }
 
-type UsersData struct {
-	Users []UserXML `xml:"row"`
-	// Users []struct {
-	// 	ID        int    `xml:"id"`
-	// 	Age       int    `xml:"age"`
-	// 	FirstName string `xml:"first_name"`
-	// 	LastName  string `xml:"last_name"`
-	// 	Gender    string `xml:"gender"`
-	// 	About     string `xml:"about"`
-	// } `xml:"row"`
-}
+// type UsersData struct {
+// 	Users []UserData `xml:"row"`
+// }
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
-
+	//TODO: add access token verification
+	println("AccessToken =", r.Header.Get("AccessToken"))
+	if r.Header.Get("AccessToken") != "secret" {
+		http.Error(w, fmt.Sprint("Bad AccessToken"), http.StatusUnauthorized)
+		return
+	}
 	vals := r.URL.Query()
-
-	// fmt.Printf("%#v\n", vals.Get("limit"))
-	limit, _ := strconv.Atoi(vals.Get("limit"))
-	println("limit = ", limit)
-	offset, _ := strconv.Atoi(vals.Get("offset"))
+	limit, err := strconv.Atoi(vals.Get("limit"))
+	offset, err := strconv.Atoi(vals.Get("offset"))
 	query := vals.Get("query")
 	orderField := vals.Get("order_field")
-	orderBy, _ := strconv.Atoi(vals.Get("order_by"))
+	orderBy, err := strconv.Atoi(vals.Get("order_by"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	data, _ := os.Open("dataset.xml")
-	// if err != nil {
-	// 	panic(err)
-	// }
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	defer data.Close()
 
 	rawData, err := ioutil.ReadAll(data)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	var u UsersData
+	var u struct {
+		Users []UserData `xml:"row"`
+	}
 	err = xml.Unmarshal(rawData, &u)
 	if err != nil {
-		panic(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	users := u.Users
@@ -66,6 +71,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(v.About, query) ||
 			strings.Contains(v.FirstName+v.LastName, query) {
 			users[i] = v
+			users[i].Name = v.FirstName + " " + v.LastName
 			i++
 		}
 	}
@@ -79,24 +85,28 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	}
 	users = users[offset:limit]
 
-	sortByParams(users, orderField, orderBy)
-	// fmt.Printf("%#v\n", users)
-	fmt.Fprintf(w, "%#v", users)
-	// for _, v := range users {
-	// 	// fmt.Printf("%#v\n", v.LastName)
-	// 	println(v.ID, v.FirstName, v.LastName)
-	// }
+	err = sortByParams(users, orderField, orderBy)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	result, err := json.Marshal(users)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "%s", result)
 }
 
-func sortByParams(users []UserXML, orderField string, orderBy int) {
+func sortByParams(users []UserData, orderField string, orderBy int) error {
 	if orderBy == 0 {
-		return
+		return nil
 	}
 	var less, more func(int, int) bool
 	switch strings.ToLower(orderField) {
 	case "id":
-		less = func(i, j int) bool { return users[i].ID < users[j].ID }
-		more = func(i, j int) bool { return users[i].ID > users[j].ID }
+		less = func(i, j int) bool { return users[i].Id < users[j].Id }
+		more = func(i, j int) bool { return users[i].Id > users[j].Id }
 	case "age":
 		less = func(i, j int) bool { return users[i].Age < users[j].Age }
 		more = func(i, j int) bool { return users[i].Age > users[j].Age }
@@ -108,28 +118,19 @@ func sortByParams(users []UserXML, orderField string, orderBy int) {
 			return users[i].FirstName+users[i].LastName > users[j].FirstName+users[j].LastName
 		}
 	default:
-		panic(fmt.Errorf("SearchServer: invalid OrderField: %s", orderField))
+		return fmt.Errorf("invalid OrderField: %s", orderField)
 	}
 	if orderBy > 0 {
 		sort.Slice(users, less)
 	} else if orderBy < 0 {
 		sort.Slice(users, more)
 	}
+	return nil
 }
 
 func main() {
-	err := http.ListenAndServe(":5000", http.HandlerFunc(SearchServer))
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
+	http.HandleFunc("/", SearchServer)
+	err := http.ListenAndServe(":5000", nil)
 	log.Print(err)
-	// sc := SearchClient{
-	// 	URL: "http://127.0.0.1:5000",
-	// }
-	// sr := SearchRequest{
-	// 	Limit:      50,
-	// 	Offset:     0,
-	// 	Query:      "culpa",
-	// 	OrderField: "name",
-	// 	OrderBy:    1,
-	// }
-	// sResp, _ := sc.FindUsers(sr)
-	// println(sResp.Users)
 }
