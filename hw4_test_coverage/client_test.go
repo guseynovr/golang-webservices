@@ -69,8 +69,8 @@ func TestFindUsers(t *testing.T) {
 		TestCase{
 			AccessToken: "",
 			Request: SearchRequest{
-				Limit:      50,
-				Offset:     -1,
+				Limit:      20,
+				Offset:     0,
 				Query:      "Boyd",
 				OrderField: "name",
 				OrderBy:    1,
