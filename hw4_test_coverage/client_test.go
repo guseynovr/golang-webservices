@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type TestCase struct {
@@ -97,4 +98,54 @@ func TestFindUsers(t *testing.T) {
 			t.Errorf("%d: incorrect result: expected: %#v\ngot: %#v\n", testNum, testCase.Result, result)
 		}
 	}
+}
+
+//Server errors
+const (
+	timeout = iota
+	unknown
+	fatal
+)
+
+func TestErrors(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(10 * time.Second)
+	}))
+	defer ts.Close()
+
+	tc := []TestCase{
+		TestCase{
+			AccessToken: "secret",
+			Request: SearchRequest{
+				Limit:      20,
+				Offset:     0,
+				Query:      "Boyd",
+				OrderField: "name",
+				OrderBy:    1,
+			},
+			Result:  nil,
+			IsError: true,
+		},
+	}
+	sc := SearchClient{AccessToken: "secret", URL: ts.URL}
+	for testNum, testCase := range tc {
+		sc.AccessToken = testCase.AccessToken
+		result, err := sc.FindUsers(testCase.Request)
+		if err != nil && !testCase.IsError {
+			t.Errorf("unexpected error: %#v", err)
+		}
+		if err == nil && testCase.IsError {
+			t.Error("expected error, got nil")
+		}
+		// got, _ := json.Marshal(result)
+		// expected, _ := json.Marshal(testCase.Result)
+		// if string(got) != string(expected) {
+		if !reflect.DeepEqual(result, testCase.Result) {
+			t.Errorf("%d: incorrect result: expected: %#v\ngot: %#v\n", testNum, testCase.Result, result)
+		}
+	}
+}
+
+func SearchServerErrors(w http.ResponseWriter, r *http.Request) {
+
 }

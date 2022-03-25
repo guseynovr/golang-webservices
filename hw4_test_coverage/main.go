@@ -28,8 +28,6 @@ type UserData struct {
 // }
 
 func SearchServer(w http.ResponseWriter, r *http.Request) {
-	//TODO: add access token verification
-	println("AccessToken =", r.Header.Get("AccessToken"))
 	if r.Header.Get("AccessToken") != "secret" {
 		http.Error(w, fmt.Sprint("Bad AccessToken"), http.StatusUnauthorized)
 		return
