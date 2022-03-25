@@ -55,9 +55,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">coursera/coursera_hw/hw4_test_coverage/client.go (71.4%)</option>
-				
-				<option value="file1">coursera/coursera_hw/hw4_test_coverage/main.go (57.9%)</option>
+				<option value="file0">coursera/homework/hw4_test_coverage/client.go (100.0%)</option>
 				
 				</select>
 			</div>
@@ -168,7 +166,7 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
                 if err, ok := err.(net.Error); ok &amp;&amp; err.Timeout() </span><span class="cov8" title="1">{
                         return nil, fmt.Errorf("timeout for %s", searcherParams.Encode())
                 }</span>
-                <span class="cov0" title="0">return nil, fmt.Errorf("unknown error %s", err)</span>
+                <span class="cov8" title="1">return nil, fmt.Errorf("unknown error %s", err)</span>
         }
         <span class="cov8" title="1">defer resp.Body.Close()
         body, err := ioutil.ReadAll(resp.Body)
@@ -176,28 +174,28 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
         switch resp.StatusCode </span>{
         case http.StatusUnauthorized:<span class="cov8" title="1">
                 return nil, fmt.Errorf("Bad AccessToken")</span>
-        case http.StatusInternalServerError:<span class="cov0" title="0">
+        case http.StatusInternalServerError:<span class="cov8" title="1">
                 return nil, fmt.Errorf("SearchServer fatal error")</span>
-        case http.StatusBadRequest:<span class="cov0" title="0">
+        case http.StatusBadRequest:<span class="cov8" title="1">
                 errResp := SearchErrorResponse{}
                 err = json.Unmarshal(body, &amp;errResp)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov8" title="1">{
                         return nil, fmt.Errorf("cant unpack error json: %s", err)
                 }</span>
-                <span class="cov0" title="0">if errResp.Error == "ErrorBadOrderField" </span><span class="cov0" title="0">{
+                <span class="cov8" title="1">if errResp.Error == "ErrorBadOrderField" </span><span class="cov8" title="1">{
                         return nil, fmt.Errorf("OrderFeld %s invalid", req.OrderField)
                 }</span>
-                <span class="cov0" title="0">return nil, fmt.Errorf("unknown bad request error: %s", errResp.Error)</span>
+                <span class="cov8" title="1">return nil, fmt.Errorf("unknown bad request error: %s", errResp.Error)</span>
         }
 
         <span class="cov8" title="1">data := []User{}
         err = json.Unmarshal(body, &amp;data)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("cant unpack result json: %s", err)
         }</span>
 
         <span class="cov8" title="1">result := SearchResponse{}
-        if len(data) == req.Limit </span><span class="cov0" title="0">{
+        if len(data) == req.Limit </span><span class="cov8" title="1">{
                 result.NextPage = true
                 result.Users = data[0 : len(data)-1]
         }</span> else<span class="cov8" title="1"> {
@@ -205,144 +203,6 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
         }</span>
 
         <span class="cov8" title="1">return &amp;result, err</span>
-}
-</pre>
-		
-		<pre class="file" id="file1" style="display: none">package main
-
-import (
-        "encoding/json"
-        "encoding/xml"
-        "fmt"
-        "io/ioutil"
-        "log"
-        "net/http"
-        "os"
-        "sort"
-        "strconv"
-        "strings"
-)
-
-type UserData struct {
-        Id        int    `xml:"id"`
-        Age       int    `xml:"age"`
-        FirstName string `xml:"first_name" json:"-"`
-        LastName  string `xml:"last_name" json:"-"`
-        Name      string `xml:"-"`
-        Gender    string `xml:"gender"`
-        About     string `xml:"about"`
-}
-
-// type UsersData struct {
-//         Users []UserData `xml:"row"`
-// }
-
-func SearchServer(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
-        //TODO: add access token verification
-        println("AccessToken =", r.Header.Get("AccessToken"))
-        if r.Header.Get("AccessToken") != "secret" </span><span class="cov8" title="1">{
-                http.Error(w, fmt.Sprint("Bad AccessToken"), http.StatusUnauthorized)
-                return
-        }</span>
-        <span class="cov8" title="1">vals := r.URL.Query()
-        limit, err := strconv.Atoi(vals.Get("limit"))
-        offset, err := strconv.Atoi(vals.Get("offset"))
-        query := vals.Get("query")
-        orderField := vals.Get("order_field")
-        orderBy, err := strconv.Atoi(vals.Get("order_by"))
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusBadRequest)
-                return
-        }</span>
-        <span class="cov8" title="1">data, _ := os.Open("dataset.xml")
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusInternalServerError)
-                return
-        }</span>
-        <span class="cov8" title="1">defer data.Close()
-
-        rawData, err := ioutil.ReadAll(data)
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusInternalServerError)
-                return
-        }</span>
-        <span class="cov8" title="1">var u struct {
-                Users []UserData `xml:"row"`
-        }
-        err = xml.Unmarshal(rawData, &amp;u)
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusInternalServerError)
-                return
-        }</span>
-
-        <span class="cov8" title="1">users := u.Users
-        i := 0
-        for _, v := range users </span><span class="cov8" title="1">{
-                if strings.Contains(v.About, query) ||
-                        strings.Contains(v.FirstName+v.LastName, query) </span><span class="cov8" title="1">{
-                        users[i] = v
-                        users[i].Name = v.FirstName + " " + v.LastName
-                        i++
-                }</span>
-        }
-        <span class="cov8" title="1">users = users[:i]
-
-        if offset &gt;= limit || offset &gt; len(users) </span><span class="cov0" title="0">{
-                offset = 0
-                limit = 0
-        }</span> else<span class="cov8" title="1"> if limit &gt; len(users) </span><span class="cov8" title="1">{
-                limit = len(users)
-        }</span>
-        <span class="cov8" title="1">users = users[offset:limit]
-
-        err = sortByParams(users, orderField, orderBy)
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusBadRequest)
-                return
-        }</span>
-        <span class="cov8" title="1">result, err := json.Marshal(users)
-        if err != nil </span><span class="cov0" title="0">{
-                http.Error(w, err.Error(), http.StatusInternalServerError)
-                return
-        }</span>
-        <span class="cov8" title="1">fmt.Fprintf(w, "%s", result)</span>
-}
-
-func sortByParams(users []UserData, orderField string, orderBy int) error <span class="cov8" title="1">{
-        if orderBy == 0 </span><span class="cov0" title="0">{
-                return nil
-        }</span>
-        <span class="cov8" title="1">var less, more func(int, int) bool
-        switch strings.ToLower(orderField) </span>{
-        case "id":<span class="cov0" title="0">
-                less = func(i, j int) bool </span><span class="cov0" title="0">{ return users[i].Id &lt; users[j].Id }</span>
-                <span class="cov0" title="0">more = func(i, j int) bool </span><span class="cov0" title="0">{ return users[i].Id &gt; users[j].Id }</span>
-        case "age":<span class="cov0" title="0">
-                less = func(i, j int) bool </span><span class="cov0" title="0">{ return users[i].Age &lt; users[j].Age }</span>
-                <span class="cov0" title="0">more = func(i, j int) bool </span><span class="cov0" title="0">{ return users[i].Age &gt; users[j].Age }</span>
-        case "name", "":<span class="cov8" title="1">
-                less = func(i, j int) bool </span><span class="cov0" title="0">{
-                        return users[i].FirstName+users[i].LastName &lt; users[j].FirstName+users[j].LastName
-                }</span>
-                <span class="cov8" title="1">more = func(i, j int) bool </span><span class="cov0" title="0">{
-                        return users[i].FirstName+users[i].LastName &gt; users[j].FirstName+users[j].LastName
-                }</span>
-        default:<span class="cov0" title="0">
-                return fmt.Errorf("invalid OrderField: %s", orderField)</span>
-        }
-        <span class="cov8" title="1">if orderBy &gt; 0 </span><span class="cov8" title="1">{
-                sort.Slice(users, less)
-        }</span> else<span class="cov0" title="0"> if orderBy &lt; 0 </span><span class="cov0" title="0">{
-                sort.Slice(users, more)
-        }</span>
-        <span class="cov8" title="1">return nil</span>
-}
-
-func main() <span class="cov0" title="0">{
-        http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) </span>{<span class="cov0" title="0">}</span>)
-        <span class="cov0" title="0">http.HandleFunc("/", SearchServer)
-        err := http.ListenAndServe(":5000", nil)
-        log.Print(err)</span>
 }
 </pre>
 		

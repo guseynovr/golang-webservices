@@ -1,5 +1,7 @@
 package main
 
+/* package main
+
 import (
 	"encoding/json"
 	"encoding/xml"
@@ -15,12 +17,12 @@ import (
 
 type UserData struct {
 	Id        int    `xml:"id"`
+	Name      string `xml:"-"`
 	Age       int    `xml:"age"`
 	FirstName string `xml:"first_name" json:"-"`
 	LastName  string `xml:"last_name" json:"-"`
-	Name      string `xml:"-"`
-	Gender    string `xml:"gender"`
 	About     string `xml:"about"`
+	Gender    string `xml:"gender"`
 }
 
 // type UsersData struct {
@@ -39,7 +41,7 @@ func SearchServer(w http.ResponseWriter, r *http.Request) {
 	orderField := vals.Get("order_field")
 	orderBy, err := strconv.Atoi(vals.Get("order_by"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, responseError(err.Error()), http.StatusBadRequest)
 		return
 	}
 	data, _ := os.Open("dataset.xml")
@@ -100,6 +102,9 @@ func sortByParams(users []UserData, orderField string, orderBy int) error {
 	if orderBy == 0 {
 		return nil
 	}
+	if orderBy < -1 || orderBy > 1 {
+		return fmt.Errorf("%s", responseError("ErrorBadOrderBy"))
+	}
 	var less, more func(int, int) bool
 	switch strings.ToLower(orderField) {
 	case "id":
@@ -116,7 +121,7 @@ func sortByParams(users []UserData, orderField string, orderBy int) error {
 			return users[i].FirstName+users[i].LastName > users[j].FirstName+users[j].LastName
 		}
 	default:
-		return fmt.Errorf("invalid OrderField: %s", orderField)
+		return fmt.Errorf("%s", responseError("ErrorBadOrderField"))
 	}
 	if orderBy > 0 {
 		sort.Slice(users, less)
@@ -126,9 +131,21 @@ func sortByParams(users []UserData, orderField string, orderBy int) error {
 	return nil
 }
 
+func responseError(e string) string {
+	errResp := SearchErrorResponse {
+		Error: e,
+	}
+	errJSON, err := json.Marshal(errResp)
+	if err != nil {
+		panic(err)
+	}
+	return string(errJSON)
+}
+
 func main() {
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
 	http.HandleFunc("/", SearchServer)
 	err := http.ListenAndServe(":5000", nil)
 	log.Print(err)
 }
+*/
